@@ -10,7 +10,10 @@
 #include <fstream>
 #include <sstream>
 #include <ctype.h>
+#include <math.h>
+#include <sys/time.h>
 
+struct timeval startTimeVal;
 #define KEY_UP 8//72
 #define KEY_DOWN 2//80
 #define KEY_LEFT 4//75
@@ -495,15 +498,118 @@ class GPIO{
 			return gpioPinGPIVal;
 		}
 };
-int initializeGPIO(GPIO* gpio,string gpioPinNum, string direction){
-	gpio = new GPIO(gpioPinNum);
-	gpio->export_gpio();
-	gpio->setdir_gpio(direction);
-	return 0;
+
+double getTime(){
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    double sec = tv.tv_sec - startTimeVal.tv_sec;
+    double usec = tv.tv_usec - startTimeVal.tv_usec;
+    return (sec + usec/1000000.0);  
+}
+void manuallyCount(){
+	//initializeGPIO(gpio22,"22","out");
+	GPIO *gpio18;
+	//wheel incoder input value GPIO
+	gpio18 = new GPIO("18");
+	gpio18->export_gpio();
+	gpio18->setdir_gpio("in");
+	int tick_counter = 0; // counts low to high changes on GPIO 18
+    string wheel_current = "14"; // current state of GPio
+    string wheel_next; // temporary value for checking when the value changes.
+    int error = 0;
+    //cout << "program starts here:" << endl;
+    //error = gpio18->getval_gpio(wheel_current);
+	//cout << wheel_current << endl;
+	while(1){
+		//Wheel encoder Program Start
+		//error = gpio18->getval_gpio(wheel_current);
+		//cout << wheel_current << endl;
+		do {   
+			error = gpio18->getval_gpio(wheel_current);  
+		}while (wheel_current!= "0"); // polls for gpio to return 0;
+		//cout << "at zero" << endl;
+		do {
+			error = gpio18->getval_gpio(wheel_current);
+		}while (wheel_current != "1"); // polls for gpio to return 1;
+		tick_counter++; // we have gone for zero to 1, increment counter
+		cout << "Number of Ticks %i: " << tick_counter << endl;
+	}
+	
+}
+void goThisDistance(){
+	//initializeGPIO(gpio22,"22","out");
+	GPIO *gpio18;
+	GPIO *gpio4,*gpio17;
+	//initializeGPIO(gpio4,"4","out");
+	gpio4 = new GPIO("4");
+	gpio4->unexport_gpio();
+	gpio4->export_gpio();
+	gpio4->setdir_gpio("out");
+	//initializeGPIO(gpio17,"17","out");
+	gpio17 = new GPIO("17");
+	gpio17->unexport_gpio();
+	gpio17->export_gpio();
+	gpio17->setdir_gpio("out");
+	//wheel incoder input value GPIO
+	gpio18 = new GPIO("18");
+	gpio18->unexport_gpio();
+	gpio18->export_gpio();
+	gpio18->setdir_gpio("in");
+	
+	int tick_counter = 0; // counts low to high changes on GPIO 18
+    string wheel_current = "14"; // current state of GPio
+    string wheel_next; // temporary value for checking when the value changes.
+    int error = 0;
+    //cout << "program starts here:" << endl;
+    //error = gpio18->getval_gpio(wheel_current);  
+	//cout << wheel_current << endl;
+	int distance = 0, n = 0;
+	while(1){
+		tick_counter = 0;
+		cout<< "Enter Distance(unit: cm): ";
+		cout<<">> ";
+		cin >> distance;
+		tick_counter = ceil((double)distance/1.55);
+		tick_counter /= 2;
+		cout<<"num of ticks: "<<tick_counter<<endl;
+		cout<< "Moving Forward..." << endl;
+		gettimeofday(&startTimeVal,NULL);
+		gpio4->setval_gpio("1");
+		gpio17->setval_gpio("0");
+		while(1){
+			//Wheel encoder Program Start
+			//error = gpio18->getval_gpio(wheel_current);
+			//cout << wheel_current << endl;
+			gpio18->getval_gpio(wheel_current);
+			if(wheel_current == "1"){
+				do {   error = gpio18->getval_gpio(wheel_current);  }
+				while (wheel_current!= "0"); // polls for gpio to return 0;
+				//cout << "at zero" << endl;
+			}else{
+				do {   error = gpio18->getval_gpio(wheel_current);  }
+				while (wheel_current != "1"); // polls for gpio to return 1;
+			}
+			if(tick_counter < 0){
+				//Stop You have reached the destination
+				cout<< "Stop..." << endl;
+				gpio4->setval_gpio("0");
+				gpio17->setval_gpio("1");
+				usleep(500000);
+				gpio4->setval_gpio("0");
+				gpio17->setval_gpio("0");
+				break;
+			}
+			cout << "Number of Ticks %i: " << tick_counter <<" Time: "<< getTime() << endl;
+			tick_counter--; // we have gone for zero to 1, increment counter
+		}
+	}
 }
 int main(){
 	const int forward = 8, backward = 2, turnRight = 6, turnLeft = 4,stop = 5;
 	cout<< "-----Created By: RoboGlove-----"<<endl;
+	//manuallyCount();
+	goThisDistance();
+	/*
 	GPIO *gpio4,*gpio17,*gpio27,*gpio22;
 	//Use the GPIO pins
 	//initializeGPIO(gpio4,"4","out");
@@ -532,46 +638,54 @@ int main(){
 		cout<<">> ";
 		cin >> keyPressed;
         //cout<<"Enterd: "<< keyPressed << endl;
-		switch((keyPressed = getchar())){
+		switch((keyPressed)){
 			case KEY_UP:
 				//Go forward motion Code
 				cout<< "Moving Forward..." << endl;
 				gpio4->setval_gpio("1");
 				gpio17->setval_gpio("0");
-				gpio27->setval_gpio("1");
-				gpio22->setval_gpio("0");
+				//gpio27->setval_gpio("1");
+				//gpio22->setval_gpio("0");
 				break;
 			case KEY_DOWN:
 				//Go backward motion Code
 				cout<< "Moving Backward..." << endl;				
 				gpio4->setval_gpio("0");
 				gpio17->setval_gpio("1");
-				gpio27->setval_gpio("0");
-				gpio22->setval_gpio("1");
+				//gpio27->setval_gpio("0");
+				//gpio22->setval_gpio("1");
 				break;
 			case KEY_RIGHT:
 				//turn right Code
 				cout<< "Tunrnnig Right..." << endl;
 				gpio4->setval_gpio("1");
 				gpio17->setval_gpio("0");
-				gpio27->setval_gpio("0");
-				gpio22->setval_gpio("1");
+				//gpio27->setval_gpio("0");
+				//gpio22->setval_gpio("1");
 				break;
 			case KEY_LEFT:
 				//turn left Code
 				cout<< "Tunrnnig Left..." << endl;
 				gpio4->setval_gpio("0");
 				gpio17->setval_gpio("1");
-				gpio27->setval_gpio("1");
-				gpio22->setval_gpio("0");
+				//gpio27->setval_gpio("1");
+				//gpio22->setval_gpio("0");
 				break;
-			case stop:
+			case st85op:
+				cout<< "Full Stop..." << endl;
+				//turn left Code
+				gpio4->setval_gpio("1");
+				gpio17->setval_gpio("1");
+				//gpio27->setval_gpio("0");
+				//gpio22->setval_gpio("0");
+				break;
+			case 7:
 				cout<< "Full Stop..." << endl;
 				//turn left Code
 				gpio4->setval_gpio("0");
 				gpio17->setval_gpio("0");
-				gpio27->setval_gpio("0");
-				gpio22->setval_gpio("0");
+				//gpio27->setval_gpio("0");
+				//gpio22->setval_gpio("0");
 				break;
 		}
 		/*
@@ -583,6 +697,7 @@ int main(){
 		gpio26->setval_gpio("0");
 		cout<<"Info: waiting 1 sec"<<endl;
 		usleep(sec);
-		*/
+		
 	}
+	*/
 }
